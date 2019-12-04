@@ -1,0 +1,134 @@
+version: '3.7'
+
+services:
+  puppet:
+    hostname: puppet.${DOMAIN:-test}
+    image: puppet/puppetserver:${PUPPETSERVER_VERSION:-latest}
+    ports:
+      - 8140:8140
+    environment:
+      # necessary to set certname and server in puppet.conf, required by
+      # puppetserver ca cli application
+      - AUTOSIGN=true
+      - PUPPETSERVER_HOSTNAME=puppet.${DOMAIN:-test}
+      # DNS_ALT_NAMES must be set before starting the stack the first time,
+      # and must list all the names under which the puppetserver can be
+      # reached. 'puppet.${DOMAIN:-test}' must be one of them, otherwise puppetdb won't be
+      # able to get a cert. Add other names as a comma-separated list
+      - CA_ALLOW_SUBJECT_ALT_NAMES=true
+      - DNS_ALT_NAMES=puppet,puppet.${DOMAIN:-test},${DNS_ALT_NAMES:-}
+      - PUPPERWARE_ANALYTICS_ENABLED=${PUPPERWARE_ANALYTICS_ENABLED:-true}
+      - PUPPETDB_SERVER_URLS=https://puppetdb.${DOMAIN:-test}:8081
+    volumes:
+      - puppetserver-code:/etc/puppetlabs/code/
+      - puppetserver-config:/etc/puppetlabs/puppet/
+      - puppetserver-data:/opt/puppetlabs/server/data/puppetserver/
+      - ./manifests:/etc/puppetlabs/code/environments/production/manifests
+      - ./modules:/etc/puppetlabs/code/environments/production/modules
+    dns_search: ${DOMAIN:-test}
+    networks:
+      default:
+        aliases:
+          - puppet.${DOMAIN:-test}
+
+  postgres:
+    image: postgres:9.6
+    hostname: postgres.${DOMAIN:-test}
+    environment:
+      - POSTGRES_PASSWORD=puppetdb
+      - POSTGRES_USER=puppetdb
+      - POSTGRES_DB=puppetdb
+    healthcheck:
+      # existence check for puppetdb database
+      test: [ 'CMD-SHELL', "psql --username=puppetdb puppetdb -c ''" ]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 2m
+    expose:
+      - 5432
+    volumes:
+      - puppetdb-postgres:/var/lib/postgresql/data
+      - ./postgres-custom:/docker-entrypoint-initdb.d
+    dns_search: ${DOMAIN:-test}
+    networks:
+      default:
+        aliases:
+          - postgres.${DOMAIN:-test}
+
+  puppetdb:
+    hostname: puppetdb.${DOMAIN:-test}
+    image: puppet/puppetdb:${PUPPETDB_VERSION:-latest}
+    environment:
+      - PUPPERWARE_ANALYTICS_ENABLED=${PUPPERWARE_ANALYTICS_ENABLED:-true}
+      # This name is an FQDN so the short name puppet doesn't collide outside compose network
+      - PUPPETSERVER_HOSTNAME=puppet.${DOMAIN:-test}
+      - PUPPETDB_POSTGRES_HOSTNAME=postgres.${DOMAIN:-test}
+      - PUPPETDB_PASSWORD=puppetdb
+      - PUPPETDB_USER=puppetdb
+      - DNS_ALT_NAMES=puppetdb,${DNS_ALT_NAMES:-}
+    ports:
+      - 8080
+      - 8081
+    depends_on:
+      - postgres
+      - puppet
+    volumes:
+      - puppetdb:/opt/puppetlabs/server/data/puppetdb
+    dns_search: ${DOMAIN:-test}
+    networks:
+      default:
+        aliases:
+          - puppetdb.${DOMAIN:-test}
+
+  puppetboard:
+    container_name: puppetboard
+    hostname: puppetboard
+    image: puppet/puppetboard
+    restart: always
+    environment:
+      - PUPPETDB_HOST=puppetdb
+      - PUPPETDB_PORT=8080
+      - PUPPETDB_SSL_VERIFY=False
+      - ENABLE_CATALOG=True
+    ports:
+      - 8001:8000
+    networks:
+      default:
+        aliases:
+          - puppetboard.${DOMAIN:-test}
+
+
+  agent1:
+    restart: always
+    hostname: agent1.${DOMAIN:-test}
+    image: puppet/puppet-agent:${PUPPETDB_VERSION:-latest}
+    entrypoint: ["/bin/sleep"]
+    command: "infinity"
+    environment:
+      - PUPPERWARE_ANALYTICS_ENABLED=${PUPPERWARE_ANALYTICS_ENABLED:-true}
+      # This name is an FQDN so the short name puppet doesn't collide outside compose network
+      - PUPPETSERVER_HOSTNAME=puppet.${DOMAIN:-test}
+      # - PUPPETDB_POSTGRES_HOSTNAME=postgres.${DOMAIN:-test}
+      # - PUPPETDB_PASSWORD=puppetdb
+      # - PUPPETDB_USER=puppetdb
+      - DNS_ALT_NAMES=agent1,${DNS_ALT_NAMES:-}
+    ports:
+      - 8080
+      - 8081
+    depends_on:
+      - puppet
+    # volumes:
+    #   - puppetdb:/opt/puppetlabs/server/data/puppetdb
+    dns_search: ${DOMAIN:-test}
+    networks:
+      default:
+        aliases:
+          - agent1.${DOMAIN:-test}
+
+volumes:
+  puppetserver-code:
+  puppetserver-config:
+  puppetserver-data:
+  puppetdb:
+  puppetdb-postgres:
