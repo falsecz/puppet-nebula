@@ -1,13 +1,21 @@
 ```sh
-docker-compose exec puppet puppetserver ca clean --certname agent1.test
+# start up
+docker-compose up -d
 
-docker-compose exec puppet puppet module install puppet-archive
+# tear down
+docker-compose down
+```
 
-docker-compose exec agent1 puppet agent --test
+```sh
+docker-compose exec puppet_master puppetserver ca clean --certname agent1.test
 
-docker-compose exec puppet puppet agent --test
+docker-compose exec puppet_master puppet module install puppet-archive
 
-docker-compose exec puppet cat /etc/nebula/config.yml
+docker-compose exec puppet_agent_one puppet agent --test
 
-docker-compose exec puppet bash
+docker-compose exec puppet_master puppet agent --test
+
+docker-compose exec puppet_master cat /etc/nebula/config.yml
+
+docker-compose exec puppet_master bash
 ```

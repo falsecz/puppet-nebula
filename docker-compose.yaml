@@ -1,9 +1,9 @@
-version: '3.7'
+version: "3.7"
 
 services:
-  puppet:
-    hostname: puppet.${DOMAIN:-test}
+  puppet_master:
     image: puppet/puppetserver:${PUPPETSERVER_VERSION:-latest}
+    hostname: puppet.${DOMAIN:-test}
     ports:
       - 8140:8140
     environment:
@@ -40,7 +40,7 @@ services:
       - POSTGRES_DB=puppetdb
     healthcheck:
       # existence check for puppetdb database
-      test: [ 'CMD-SHELL', "psql --username=puppetdb puppetdb -c ''" ]
+      test: ["CMD-SHELL", "psql --username=puppetdb puppetdb -c ''"]
       interval: 10s
       timeout: 5s
       retries: 6
@@ -57,8 +57,8 @@ services:
           - postgres.${DOMAIN:-test}
 
   puppetdb:
-    hostname: puppetdb.${DOMAIN:-test}
     image: puppet/puppetdb:${PUPPETDB_VERSION:-latest}
+    hostname: puppetdb.${DOMAIN:-test}
     environment:
       - PUPPERWARE_ANALYTICS_ENABLED=${PUPPERWARE_ANALYTICS_ENABLED:-true}
       # This name is an FQDN so the short name puppet doesn't collide outside compose network
@@ -72,7 +72,7 @@ services:
       - 8081
     depends_on:
       - postgres
-      - puppet
+      - puppet_master
     volumes:
       - puppetdb:/opt/puppetlabs/server/data/puppetdb
     dns_search: ${DOMAIN:-test}
@@ -82,9 +82,8 @@ services:
           - puppetdb.${DOMAIN:-test}
 
   puppetboard:
-    container_name: puppetboard
-    hostname: puppetboard
     image: puppet/puppetboard
+    hostname: puppetboard
     restart: always
     environment:
       - PUPPETDB_HOST=puppetdb
@@ -98,11 +97,10 @@ services:
         aliases:
           - puppetboard.${DOMAIN:-test}
 
-
-  agent1:
+  puppet_agent_one:
+    image: puppet/puppet-agent:${PUPPETDB_VERSION:-latest}
     restart: always
     hostname: agent1.${DOMAIN:-test}
-    image: puppet/puppet-agent:${PUPPETDB_VERSION:-latest}
     entrypoint: ["/bin/sleep"]
     command: "infinity"
     environment:
@@ -117,9 +115,7 @@ services:
       - 8080
       - 8081
     depends_on:
-      - puppet
-    # volumes:
-    #   - puppetdb:/opt/puppetlabs/server/data/puppetdb
+      - puppet_master
     dns_search: ${DOMAIN:-test}
     networks:
       default:
