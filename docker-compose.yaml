@@ -122,6 +122,31 @@ services:
         aliases:
           - agent1.${DOMAIN:-test}
 
+  puppet_agent_two:
+    image: puppet/puppet-agent:${PUPPETDB_VERSION:-latest}
+    restart: always
+    hostname: agent2.${DOMAIN:-test}
+    entrypoint: ["/bin/sleep"]
+    command: "infinity"
+    environment:
+      - PUPPERWARE_ANALYTICS_ENABLED=${PUPPERWARE_ANALYTICS_ENABLED:-true}
+      # This name is an FQDN so the short name puppet doesn't collide outside compose network
+      - PUPPETSERVER_HOSTNAME=puppet.${DOMAIN:-test}
+      # - PUPPETDB_POSTGRES_HOSTNAME=postgres.${DOMAIN:-test}
+      # - PUPPETDB_PASSWORD=puppetdb
+      # - PUPPETDB_USER=puppetdb
+      - DNS_ALT_NAMES=agent2,${DNS_ALT_NAMES:-}
+    ports:
+      - 8080
+      - 8081
+    depends_on:
+      - puppet_master
+    dns_search: ${DOMAIN:-test}
+    networks:
+      default:
+        aliases:
+          - agent2.${DOMAIN:-test}
+
 volumes:
   puppetserver-code:
   puppetserver-config:
