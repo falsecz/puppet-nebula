@@ -63,34 +63,23 @@ class nebula::host (String $host_name, String $address) inherits nebula {
     'address' => $address,
   }
 
-  # PRO BENÍKA <3
-  # Háže ejjoj
-  # Error: Failed to apply catalog: Function nebula_hostcert not defined despite being loaded!
-  $ca = Deferred('nebula_hostcert', ['ca', $opts])
-  # $crt = Deferred('nebula_hostcert', ['crt', $opts])
-  # $key = Deferred('nebula_hostcert', ['key', $opts])
-
-  notify { 'example':
-    message => $ca
+  file { '/etc/nebula/ca.crt':
+    ensure  => present,
+    content => nebula_hostcert('ca', $opts),
+    require => File['/etc/nebula'],
   }
 
-  # file { '/etc/nebula/ca.crt':
-  #   ensure  => present,
-  #   content => $ca,
-  #   require => File['/etc/nebula'],
-  # }
+  file { '/etc/nebula/nebula.crt':
+    ensure  => present,
+    content => nebula_hostcert('crt', $opts),
+    require => File['/etc/nebula'],
+  }
 
-  # file { '/etc/nebula/nebula.crt':
-  #   ensure  => present,
-  #   content => $crt,
-  #   require => File['/etc/nebula'],
-  # }
-
-  # file { '/etc/nebula/nebula.key':
-  #   ensure  => present,
-  #   content => $key,
-  #   require => File['/etc/nebula'],
-  # }
+  file { '/etc/nebula/nebula.key':
+    ensure  => present,
+    content => nebula_hostcert('key', $opts),
+    require => File['/etc/nebula'],
+  }
 
   file { '/etc/nebula/config.yml':
     ensure  => present,
