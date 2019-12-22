@@ -1,2 +1,6 @@
 stdlib
 archive
+concat
+hocon
+puppet_authorization
+translate

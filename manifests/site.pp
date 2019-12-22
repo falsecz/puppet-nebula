@@ -1,22 +1,39 @@
 include nebula
 
 node 'agent1' {
-  include nebula
-
   class { 'nebula::host':
     host_name => 'fuka',
-    address   => '192.168.33.5/24',
+  }
+}
+
+node 'agent2' {
+  class { 'nebula::host':
+    host_name => 'zidan',
   }
 }
 
 node 'puppet' {
-  class { 'nebula::ca':
-    ca_name => 's9y',
+  puppet_authorization::rule { 'auth_certs':
+    match_request_path => '^/puppet/v3/file_(content|metadata)s?/nebula_certs',
+    match_request_type => 'regex',
+    allow              => '*',
+    sort_order         => 300,
+    path               => '/etc/puppetlabs/puppetserver/conf.d/auth.conf',
+    # notify             => Service['puppetserver'],
   }
 
-  # problemy - tohle musim zakomentovat dokud neni vytvoreni ca
+  class { 'nebula::ca':
+    ca_name => 's9y',
+    hosts   => [
+      { host_name => 'fuka', address => '192.168.33.5/24' },
+      { host_name => 'svetylko', address => '192.168.33.1/24' },
+      { host_name => 'zidan', address => '192.168.33.7/24' },
+    ],
+    require => Puppet_authorization::Rule['auth_certs']
+  }
+
   class { 'nebula::host':
     host_name => 'svetylko',
-    address   => '192.168.33.1/24',
+    require   => Class['nebula::ca']
   }
 }

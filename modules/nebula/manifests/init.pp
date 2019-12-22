@@ -1,5 +1,5 @@
 # TODO documentation
-class nebula (Optional[Array[Hash[String[1], Any]]] $mapa = []) {
+class nebula {
   include 'archive'
 
   archive { '/opt/nebula-cert.tgz':
@@ -13,10 +13,11 @@ class nebula (Optional[Array[Hash[String[1], Any]]] $mapa = []) {
 }
 
 # TODO documentation
-class nebula::ca (String $ca_name) inherits nebula {
+class nebula::ca (String $ca_name, Array $hosts = []) inherits nebula {
   file { '/etc/nebula-ca':
     ensure => 'directory',
     group  => 'puppet',
+    owner  => 'puppet',
     mode   => '0660'
   }
 
@@ -28,58 +29,92 @@ class nebula::ca (String $ca_name) inherits nebula {
   }
 
   file { '/etc/nebula-ca/ca.crt':
-    owner   => 'root',
+    owner   => 'puppet',
+    group   => 'puppet',
+    mode    => '0640',
+    require => Exec['nebula-cert-ca'],
+  }
+
+  file { '/etc/nebula-ca/ca.key':
+    owner   => 'puppet',
     group   => 'puppet',
     mode    => '0640',
     require => Exec['nebula-cert-ca']
   }
 
-  file { '/etc/nebula-ca/ca.key':
-    owner   => 'root',
-    group   => 'puppet',
-    mode    => '0640',
-    require => Exec['nebula-cert-ca']
+  # create_resources(nebula_host_ip, {})
+
+  # Clients definition
+  $hosts.each |Hash $host| {
+    $host_name = $host['host_name']
+    $address = $host['address']
+
+    $command = [
+      '/usr/local/bin/nebula-cert',
+      'sign',
+      '-ca-crt', '/etc/nebula-ca/ca.crt', '-ca-key', '/etc/nebula-ca/ca.key',
+      '-out-crt', "/etc/nebula-ca/${host_name}.crt",  '-out-key', "/etc/nebula-ca/${host_name}.key",
+      '-name', 'name', '-ip', $address
+    ]
+
+    exec { "ca_${host_name}":
+      command => join($command, ' '),
+      cwd     => '/etc/nebula-ca',
+      creates => ["/etc/nebula-ca/${host_name}.crt", "/etc/nebula-ca/${host_name}.key"],
+    }
+
+    file { "host_ca_${host_name}":
+      path    => "/etc/nebula-ca/${host_name}.crt",
+      owner   => 'puppet',
+      group   => 'puppet',
+      mode    => '0640',
+      require => Exec["ca_${host_name}"]
+    }
+
+    file { "host_key_${host_name}":
+      path    => "/etc/nebula-ca/${host_name}.key",
+      owner   => 'puppet',
+      group   => 'puppet',
+      mode    => '0640',
+      require => Exec["ca_${host_name}"]
+    }
+
+    @@nebula_host { $host_name:
+      private_ip => $address,
+      tag        => 'nebula_host',
+    }
   }
 }
 
 # TODO documentation
-class nebula::host (String $host_name, String $address) inherits nebula {
+class nebula::host (String $host_name) inherits nebula {
   file { '/etc/nebula':
     ensure  => 'directory',
     require => [Archive['/opt/nebula-cert.tgz']],
   }
 
-  create_resources(nebula_host, {})
+  file { 'ca':
+    ensure => present,
+    owner  => 'root',
+    path   => "/etc/nebula/ca.crt",
+    source => "puppet:///nebula_certs/ca.crt"
+  }
 
-  @@nebula_host { $host_name:
-    private_ip => $address,
-    tag        => 'nebula_host',
+  file { 'host_ca':
+    ensure => present,
+    owner  => 'root',
+    path   => "/etc/nebula/${host_name}.crt",
+    source => "puppet:///nebula_certs/${host_name}.crt"
+  }
+
+  file { 'host_key':
+    ensure => present,
+    owner  => 'root',
+    path   => "/etc/nebula/${host_name}.key",
+    source => "puppet:///nebula_certs/${host_name}.key"
   }
 
   $nhosts = puppetdb_query('resources { exported = true and type = "Nebula_host" }')
-
-  $opts = {
-    'name' => $host_name,
-    'address' => $address,
-  }
-
-  file { '/etc/nebula/ca.crt':
-    ensure  => present,
-    content => nebula_hostcert('ca', $opts),
-    require => File['/etc/nebula'],
-  }
-
-  file { '/etc/nebula/nebula.crt':
-    ensure  => present,
-    content => nebula_hostcert('crt', $opts),
-    require => File['/etc/nebula'],
-  }
-
-  file { '/etc/nebula/nebula.key':
-    ensure  => present,
-    content => nebula_hostcert('key', $opts),
-    require => File['/etc/nebula'],
-  }
 
   file { '/etc/nebula/config.yml':
     ensure  => present,
