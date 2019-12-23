@@ -4,6 +4,7 @@ services:
   puppet_master:
     image: puppet/puppetserver:${PUPPETSERVER_VERSION:-latest}
     hostname: puppet.${DOMAIN:-test}
+    restart: always
     ports:
       - 8140:8140
     environment:
@@ -25,7 +26,6 @@ services:
       - puppetserver-data:/opt/puppetlabs/server/data/puppetserver/
       - ./manifests:/etc/puppetlabs/code/environments/production/manifests
       - ./modules:/etc/puppetlabs/code/environments/production/modules
-      - ./config/fileserver.conf:/etc/puppetlabs/puppet/fileserver.conf
     dns_search: ${DOMAIN:-test}
     networks:
       default:
