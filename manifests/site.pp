@@ -1,5 +1,3 @@
-include nebula
-
 node 'agent1' {
   class { 'nebula::host':
     host_name => 'fuka',
@@ -31,7 +29,7 @@ node 'puppet' {
     owner   => 'puppet',
     group   => 'puppet',
     content => "[nebula_certs]\n  path /etc/nebula-ca\n  allow *",
-    notify  => Service['puppetserver'],
+    # notify  => Service['puppetserver'],
   }
 
   class { 'nebula::ca':
