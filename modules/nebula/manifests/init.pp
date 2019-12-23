@@ -42,12 +42,11 @@ class nebula::ca (String $ca_name, Array $hosts = []) inherits nebula {
     require => Exec['nebula-cert-ca']
   }
 
-  # create_resources(nebula_host_ip, {})
-
   # Clients definition
   $hosts.each |Hash $host| {
     $host_name = $host['host_name']
     $address = $host['address']
+    $public_ip = $host['public_ip']
 
     $command = [
       '/usr/local/bin/nebula-cert',
@@ -81,6 +80,7 @@ class nebula::ca (String $ca_name, Array $hosts = []) inherits nebula {
 
     @@nebula_host { $host_name:
       private_ip => $address,
+      public_ip  => $public_ip,
       tag        => 'nebula_host',
     }
   }
@@ -96,25 +96,25 @@ class nebula::host (String $host_name) inherits nebula {
   file { 'ca':
     ensure => present,
     owner  => 'root',
-    path   => "/etc/nebula/ca.crt",
+    path   => '/etc/nebula/ca.crt',
     source => "puppet:///nebula_certs/ca.crt"
   }
 
   file { 'host_ca':
     ensure => present,
     owner  => 'root',
-    path   => "/etc/nebula/${host_name}.crt",
+    path   => '/etc/nebula/nebula.crt',
     source => "puppet:///nebula_certs/${host_name}.crt"
   }
 
   file { 'host_key':
     ensure => present,
     owner  => 'root',
-    path   => "/etc/nebula/${host_name}.key",
+    path   => '/etc/nebula/nebula.key',
     source => "puppet:///nebula_certs/${host_name}.key"
   }
 
-  $nhosts = puppetdb_query('resources { exported = true and type = "Nebula_host" }')
+  $nebula_hosts = puppetdb_query('resources { exported = true and type = "Nebula_host" }')
 
   file { '/etc/nebula/config.yml':
     ensure  => present,

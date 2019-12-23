@@ -8,6 +8,10 @@ Puppet::Type.newtype(:nebula_host) do
     end
 
     newproperty(:private_ip) do
-        desc "ip"
+        desc "private_ip"
+    end
+
+    newproperty(:public_ip) do
+        desc "public_ip"
     end
   end
